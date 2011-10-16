@@ -1,0 +1,36 @@
+
+# Packages *required* to *build* AROS
+
+build-essential subversion automake autoconf
+bison flex netpbm python
+
+# Optional, but recommended to make life easier.
+# Removing any of these may make other stuff break,
+# so modify at your own risk
+
+ack-grep            # Better grep
+emacs23-nox         # Editor (text-only version)
+emacs-goodies-el    # Various scripts to make Emacs more pleasant
+e-uae               # Run AmigaOS 3.x apps (if you install the ROM's)
+expect              # Helpful for testing
+gdb                 # Debugging
+git-core            # Version control
+htop                # Nicer process monitoring than top
+less                # Less is more...
+lha                 # Work with Amiga lha archives
+libcurl4-gnutls-dev # Requires for working on AROS git port.
+libpng12-dev        # png2c etc.
+libx11-dev          # Required for X11 drivers for AROS hosted
+libxxf86vm1         # Not required to compile, but required to *run* AROS hosted under X
+ltrace              # Debugging
+openbox             # Small window manager (change to whatever you prefer)
+openssh-server      # ssh access to the VM
+psmisc              # pstree etc.
+screen              # Keep processes running after logout
+strace              # Debugging
+sudo                # root access for ordinary users
+tcpdump             # Debug networking
+telnet              # Debug networking
+uml-utilities       # TUN/TAP networking for AROS hosted
+unzip               # Unpack zip archives
+vnc4server          # Run AROS hosted under VNC

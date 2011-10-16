@@ -1,0 +1,9 @@
+# Used for /etc/apt/sources.list on the target
+APT_SOURCE="http://ftp.uk.debian.org/"
+
+# Locale for the target. Note that this *must* be
+# an UTF-8 locale
+TARGET_LOCALE="en_GB.UTF-8"
+
+# Read package list from packages.txt
+PACKAGES=`cat packages.txt | awk -F'#' ' {print $1 }'`

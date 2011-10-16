@@ -1,0 +1,52 @@
+#!/bin/sh
+
+# Updates the rootfs cache. This one is safe to run every time you want to 
+# update settings, packages etc.
+#
+# This script does *not* contain anything that is specific to any one
+# virtualization technology.
+
+[ -z $1 ] && echo "$0: Please provide a directory for the root fs" && exit
+
+. ./config
+
+# Modify apt source list to get the repo's we want.
+cat >$1/etc/apt/sources.list <<EOF
+deb $APT_SOURCE/debian/ lenny main contrib non-free
+deb http://security.debian.org lenny/updates main contrib
+deb $APT_SOURCE/debian-backports/ lenny-backports main
+EOF
+
+chroot $1 apt-get update
+chroot $1 apt-get upgrade -y
+
+# Basic configuration. 
+chroot $1 debconf-set-selections <<EOF
+locales locales/locales_to_be_generated multiselect     $TARGET_LOCALE UTF-8
+locales locales/default_environment_locale      select  $TARGET_LOCALE
+EOF
+
+chroot $1 apt-get install -y locales localization-config
+
+# Force a reconfigure of the locale, in case you've modified $TARGET_LOCALE
+chroot $1 rm /etc/locale.gen
+chroot $1 dpkg-reconfigure -u locales
+
+chroot $1 apt-get install -y $PACKAGES
+
+# Remove cached .deb's
+chroot $1 apt-get clean
+
+# Configure user account for "aros" user, where we'll put all the stuff.
+if [ ! -e $1/home/aros ]; then
+	chroot $1 useradd -m aros
+	[ -e $1/home/aros/bin ] || chroot $1 mkdir /home/aros/bin
+fi
+
+#--- FIXME: Create script to check out, build and configure AROS
+
+
+#--- FIXME: Config AROSTCP based on files in AROSTCP.tgz
+
+#--- FIXME: Configure UAE with ROM's, HDF etc.
+

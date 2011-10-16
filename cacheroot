@@ -1,0 +1,10 @@
+#!/bin/sh
+
+. ./config
+
+[ -z $1 ] && echo "$0: Please provide a directory for the root fs" && exit 1
+[ -e $1 ] && echo "$0: The directory $1 already exists. If you wish to overwrite it, please remove it first" && exit 0
+
+debootstrap --arch i386 lenny $1 $APT_SOURCE/debian
+
+exit 0

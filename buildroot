@@ -1,0 +1,23 @@
+#!/bin/sh
+
+mkdir cache 2>/dev/null
+
+echo "Checking Debian cace" 
+
+[ ! -e cache/rootfs ] && ( ./cacheroot cache/rootfs || (echo "Cacheroot failed. Exiting" && exit 1) )
+[ ! -e cache/arosbase ] && echo cp -Rap cache/rootfs cache/arosbase
+
+echo "Updating AROS base setup"
+
+./updateroot cache/arosbase || (echo "Updateroot failed. Exiting" && exit 1)
+
+#[ -e $1 ] && echo "$0: The target $1 already exists. Not doing anything" && exit
+#
+#cp -Rap arosbase $1
+#
+#cp bootstrap $1/tmp/
+#chmod a+rx $1/tmp/bootstrap
+##
+#chroot $1 /tmp/bootstrap
+
+
