@@ -1,23 +1,105 @@
 #!/bin/sh
 
-mkdir cache 2>/dev/null
+# --- CONFIG -----------------------------------------------------------
 
-echo "Checking Debian cace" 
+# Used for /etc/apt/sources.list on the target
+APT_SOURCE="http://ftp.uk.debian.org/"
 
-[ ! -e cache/rootfs ] && ( ./cacheroot cache/rootfs || (echo "Cacheroot failed. Exiting" && exit 1) )
-[ ! -e cache/arosbase ] && echo cp -Rap cache/rootfs cache/arosbase
+# Where we store the cached root filesystem
+CACHEROOT="/var/cache/aros-vm/"
+DEBIAN_ROOT=$CACHEROOT/rootfs
+AROS_ROOT=$CACHEROOT/aros
+
+# Locale for the target. Note that this *must* be
+# an UTF-8 locale
+TARGET_LOCALE="en_GB.UTF-8"
+
+# Read package list from packages.txt; probably best not to change this
+PACKAGES=`cat packages.txt | awk -F'#' ' {print $1 }'`
+
+
+
+# ----------------------------------------------------------------------
+
+# Bootstrap debian rootfs into a cache directory we then won't touch.
+function cacheroot {
+	debootstrap --arch i386 lenny $DEBIAN_ROOT $APT_SOURCE/debian
+}
+
+# Simplify running stuff chroot'ed to the AROS specific rootfs directory.
+function inaros {
+	chroot $AROS_ROOT $@
+}
+
+
+# Configure apt, and make sure the rootfs is up to date.
+function apt_setup {
+	cat >$AROS_ROOT/etc/apt/sources.list <<EOF
+deb $APT_SOURCE/debian/ lenny main contrib non-free
+deb http://security.debian.org lenny/updates main contrib
+deb $APT_SOURCE/debian-backports/ lenny-backports main
+EOF
+	inaros apt-get update
+	inaros apt-get upgrade -y
+}
+
+
+# Set up the locale. AROS hosted requires an UTF-8 locale.
+function locale_setup {
+	inaros debconf-set-selections <<EOF
+locales locales/locales_to_be_generated multiselect     $TARGET_LOCALE UTF-8
+locales locales/default_environment_locale      select  $TARGET_LOCALE
+EOF
+
+	inaros apt-get install -y locales localization-config
+
+    # Force a reconfigure of the locale, in case you've modified $TARGET_LOCALE
+	inaros rm /etc/locale.gen
+    inaros dpkg-reconfigure -u locales
+}
+
+#
+# Install the needed .deb packages 
+#
+function install_packages {
+	inaros apt-get install -y $PACKAGES
+
+    # Remove cached .deb's, as they take up a *lot* of space
+    inaros apt-get clean
+}
+
+
+# Configure user account for "aros" user, where we'll put assorted
+# convenient scripts
+function setup_aros_user {
+	if [ ! -e $AROS_ROOT/home/aros ]; then
+		inaros useradd -m aros
+		[ -e $AROS_ROOT/home/aros/bin ] || inaros mkdir /home/aros/bin
+	fi
+}
+
+
+function updateroot {
+	apt_setup
+	locale_setup
+	install_packages
+	setup_aros_user
+#--- FIXME: Create script to check out, build and configure AROS
+#--- FIXME: Config AROSTCP based on files in AROSTCP.tgz
+#--- FIXME: Configure UAE with ROM's, HDF etc.
+}
+
+
+
+mkdir $CACHEROOT 2>/dev/null
+
+echo "Checking Debian cache" 
+[ ! -e $DEBIAN_ROOT ] && ( cacheroot $DEBIAN_ROOT || (echo "Caching the root fs failed. Exiting" && exit 1) )
+
+echo "Copying Debian cache to AROS specific cache"
+[ ! -e $AROS_ROOT ] && cp -Rap $DEBIAN_ROOT $AROS_ROOT
 
 echo "Updating AROS base setup"
 
-./updateroot cache/arosbase || (echo "Updateroot failed. Exiting" && exit 1)
-
-#[ -e $1 ] && echo "$0: The target $1 already exists. Not doing anything" && exit
-#
-#cp -Rap arosbase $1
-#
-#cp bootstrap $1/tmp/
-#chmod a+rx $1/tmp/bootstrap
-##
-#chroot $1 /tmp/bootstrap
-
+updateroot || (echo "Updateroot failed. Exiting" && exit 1)
 

@@ -1,0 +1,58 @@
+#!/bin/sh
+
+# This is the openvz specific config. It creates a VM template. It does not alter the cached rootfs,
+# so you can reuse the cached rootfs for other things.
+#
+# Some of these changes may be applicable for other virtualization technologies such as Xen or LXC,
+# but it will need modifications
+#
+
+VZID=$1
+VZDIR=/var/lib/vz/$VZID
+VZCONF=/etc/vz/conf/$VZID.conf
+
+function invm {
+	chroot $VZDIR $@
+}
+
+function ssh_gen_host_keys {
+	invm rm -f /etc/ssh/ssh_host_*
+
+    cat >$VZDIR/etc/init.d/ssh_gen_host_keys <<EOF
+#!/bin/sh
+### BEGIN INIT INFO
+# Provides:          Generates new ssh host keys on first boot
+# Required-Start:    $remote_fs $syslog
+# Required-Stop:     $remote_fs $syslog
+# Default-Start:     2 3 4 5
+# Default-Stop:
+# Short-Description: Generates new ssh host keys on first boot
+# Description:       Generates new ssh host keys on first boot
+### END INIT INFO
+ssh-keygen -f /etc/ssh/ssh_host_rsa_key -t rsa -N ''
+ssh-keygen -f /etc/ssh/ssh_host_dsa_key -t dsa -N ''
+insserv -r /etc/init.d/ssh_gen_host_keys
+rm -f \$0
+EOF
+
+    invm chmod a+x /etc/init.d/ssh_gen_host_keys"
+    invm insserv /etc/init.d/ssh_gen_host_keys
+}
+
+
+invm rm -f /etc/mtab
+invm ln -s /proc/mounts /etc/mtab
+
+# Remove getty's as we don't have a console (for LXC or Xen you likely would want to remove this)
+invm sed -i e '/getty/d' /etc/inittab
+
+ssh_gen_host_keys
+
+vzctl set $VZID --applyconfig basic --save
+
+cat >>$VZCONF <<EOF
+OSTEMPLATE="debian-5.0"
+EOF
+
+# FIXME: Set ip address
+# FIXME: Set nameserver from host
