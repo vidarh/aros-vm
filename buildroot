@@ -21,19 +21,25 @@ PACKAGES=`cat packages.txt | awk -F'#' ' {print $1 }'`
 
 # ----------------------------------------------------------------------
 
+info() {
+   echo "****** "$@
+}
+
+
 # Bootstrap debian rootfs into a cache directory we then won't touch.
-function cacheroot {
+cacheroot() {
 	debootstrap --arch i386 lenny $DEBIAN_ROOT $APT_SOURCE/debian
 }
 
 # Simplify running stuff chroot'ed to the AROS specific rootfs directory.
-function inaros {
+inaros() {
 	chroot $AROS_ROOT $@
 }
 
 
 # Configure apt, and make sure the rootfs is up to date.
-function apt_setup {
+apt_setup() {
+    info "Setting up APT"
 	cat >$AROS_ROOT/etc/apt/sources.list <<EOF
 deb $APT_SOURCE/debian/ lenny main contrib non-free
 deb http://security.debian.org lenny/updates main contrib
@@ -45,13 +51,14 @@ EOF
 
 
 # Set up the locale. AROS hosted requires an UTF-8 locale.
-function locale_setup {
-	inaros debconf-set-selections <<EOF
+locale_setup() {
+    info "Configuring UTF-8 locale"
+    inaros debconf-set-selections <<EOF
 locales locales/locales_to_be_generated multiselect     $TARGET_LOCALE UTF-8
 locales locales/default_environment_locale      select  $TARGET_LOCALE
 EOF
 
-	inaros apt-get install -y locales localization-config
+    inaros apt-get install -y locales localization-config
 
     # Force a reconfigure of the locale, in case you've modified $TARGET_LOCALE
 	inaros rm /etc/locale.gen
@@ -61,8 +68,9 @@ EOF
 #
 # Install the needed .deb packages 
 #
-function install_packages {
-	inaros apt-get install -y $PACKAGES
+install_packages() {
+    info "Installing "$PACKAGES
+    inaros apt-get install -y $PACKAGES
 
     # Remove cached .deb's, as they take up a *lot* of space
     inaros apt-get clean
@@ -71,15 +79,16 @@ function install_packages {
 
 # Configure user account for "aros" user, where we'll put assorted
 # convenient scripts
-function setup_aros_user {
-	if [ ! -e $AROS_ROOT/home/aros ]; then
-		inaros useradd -m aros
-		[ -e $AROS_ROOT/home/aros/bin ] || inaros mkdir /home/aros/bin
-	fi
+setup_aros_user() {
+    if [ ! -e $AROS_ROOT/home/aros ]; then
+        info "Creating 'aros' user"
+        inaros useradd -m aros
+	[ -e $AROS_ROOT/home/aros/bin ] || inaros mkdir /home/aros/bin
+    fi
 }
 
 
-function updateroot {
+updateroot() {
 	apt_setup
 	locale_setup
 	install_packages
@@ -90,16 +99,16 @@ function updateroot {
 }
 
 
-
+info "Creating cache root"
 mkdir $CACHEROOT 2>/dev/null
 
-echo "Checking Debian cache" 
+info "Checking Debian cache" 
 [ ! -e $DEBIAN_ROOT ] && ( cacheroot $DEBIAN_ROOT || (echo "Caching the root fs failed. Exiting" && exit 1) )
 
-echo "Copying Debian cache to AROS specific cache"
+info "Copying Debian cache to AROS specific cache"
 [ ! -e $AROS_ROOT ] && cp -Rap $DEBIAN_ROOT $AROS_ROOT
 
-echo "Updating AROS base setup"
+info "Updating AROS base setup"
 
 updateroot || (echo "Updateroot failed. Exiting" && exit 1)
 
